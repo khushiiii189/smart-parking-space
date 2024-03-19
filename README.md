@@ -1,5 +1,4 @@
-# smart-parking-space
-import time
+# smart-parking-spaceimport time
 import json
 import folium
 import pandas as pd
@@ -7,7 +6,6 @@ from selenium import webdriver
 from folium.plugins import Geocoder
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-import base64
 import threading
 import os  
 import cv2
@@ -49,7 +47,6 @@ def find_popup_slice(html):
 def find_variable_name(html, name_start):
     variable_pattern = "var "
     pattern = variable_pattern + name_start
-
     starting_index = html.find(pattern) + len(variable_pattern)
     tmp_html = html[starting_index:]
     ending_index = tmp_html.find(" =") + starting_index
@@ -112,13 +109,8 @@ def load_coords():
 def create_folium_map(map_filepath, center_coord, folium_port):
         
     # create folium map
-    try:
-        data = pd.read_csv('new2.csv')
-    except FileNotFoundError as e:
-        print(f"File not found: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
+    data = pd.read_csv('new2.csv')
+    
     df = pd.DataFrame(data)
 
     df = df.reset_index()
@@ -127,6 +119,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
     unwanted_categories = ['Underwear store', 'Auto repair shop', 'Motorcycle dealer', 'Parking garage',
                             'Fruit and vegetable store', 'Indian grocery store', 'Grocery store',
                             'General store', 'Produce market']
+    
     df = df[~df['categoryName'].isin(unwanted_categories)]
     df = df[df['title'] != 'PUNIT OIL DEPOT']
     vmap = folium.Map(center_coord, zoom_start=17)
@@ -143,8 +136,6 @@ def create_folium_map(map_filepath, center_coord, folium_port):
         
         'Google Satellite': folium.TileLayer(tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', attr='Google',
                                             name='Google Satellite', overlay=True, control=True),
-
-     
         
     }
 
@@ -209,28 +200,25 @@ def create_folium_map(map_filepath, center_coord, folium_port):
             }});
         "> Quit </button>
     </div>
-
     '''
+          
           folium.Marker(
         location=[row['latitude'], row['longitude']],
          popup=folium.Popup(popup_content),
     ).add_to(vmap)
 
-#df = df.reset_index()  # Resetting index to use row numbers as unique identifiers
+
     df.apply(add_marker, axis=1, args=(map_variable_name,folium_port))
     Geocoder().add_to(vmap)
     vmap.save(map_filepath)
 
-        # read ing the folium file
     
 
 def open_folium_map( map_filepath):
     driver = None
     try:
         driver = webdriver.Chrome()
-        driver.get(
-            map_filepath
-        )
+        driver.get(map_filepath)
     except Exception as ex:
         print(f"Driver failed to open/find url: {ex}")
 
@@ -251,86 +239,77 @@ class FoliumServer(BaseHTTPRequestHandler):
 
         if data == 'q':
             raise KeyboardInterrupt("Intended exception to exit webserver")
-        #self._set_response()
         
         coords.append(json.loads(data))
 
         with open(coordinate_filepath, 'w') as json_file:
             json.dump(coords, json_file)
 
-        #driver = webdriver.Chrome()
-        driver=open_folium_map(map_filepath)
-        if driver:
-            try:
-                time.sleep(2)
-                last_clicked_coords = coords[-1]
-                latitude = last_clicked_coords['latitude']
-                longitude = last_clicked_coords['longitude']
-                #driver.maximize_window()
-                js_code = f"alert('process');map.flyTo(L.latLng([{latitude},{longitude}]),17);"
-                
-                driver.execute_script(js_code)
-                time.sleep(2)
-                folder_path=r"C:\Users\jkhus\Desktop\ps\images"
-
-                if not os.path.exists(folder_path):
-                    os.makedirs(folder_path)
-                screenshot_path = os.path.join(folder_path, "1.png")
-                driver.save_screenshot(screenshot_path)
-                img = cv2.imread(screenshot_path)
-                resized = cv2.resize(img, None, fx=0.66,fy=0.66, interpolation=cv2.INTER_AREA)
-                dst = cv2.fastNlMeansDenoisingColored(resized, None, 10, 10, 7, 15) 
-                
-                gray=cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-                #ret, thresh=cv2.threshold(resized, 100,200,cv2.THRESH_BINARY)
-                dst = cv2.GaussianBlur(gray, (5,5), 0)
-
-                finding_edges=cv2.Canny(dst, 30,150)
-                cv2.imshow('edges',finding_edges)
-                cv2.waitKey(0)
-
-                # Find contours of green regions
-                contours, _ = cv2.findContours(finding_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-                sorted_contours= sorted(contours, key=cv2.contourArea, reverse=True)
-
-                res= sorted_contours[:50]
-
-                print(len(res))
+        time.sleep(2)
+        last_clicked_coords = coords[-1]
+        latitude = last_clicked_coords['latitude']
+        longitude = last_clicked_coords['longitude']
             
-                #large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_length_threshold]
-                # Draw contours on original image
-                for r in res:
-                    x,y,w,h=cv2.boundingRect(r)
-                    cv2.drawContours(resized, [r],-1, (0,255,0),2)
-                cv2.imshow('rough patches',resized)
-                cv2.waitKey(10)
-                cv2.destroyAllWindows()
+        js_code = f"alert('process'); map.flyTo(L.latLng([{latitude},{longitude}]),17);"
                 
-            
-                edges_pil = Image.fromarray(finding_edges)
+        driver.execute_script(js_code)
+        time.sleep(2)
+        folder_path=r"C:\Users\jkhus\Desktop\ps\images"
 
-                # Convert PIL image to bytes
-                buffer = BytesIO()
-                edges_pil.save(buffer, format="PNG")
-                buffer.seek(0)
+        if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+                    
+        screenshot_path = os.path.join(folder_path, "1.png")
+        driver.save_screenshot(screenshot_path)
+        img = cv2.imread(screenshot_path)
+        resized = cv2.resize(img, None, fx=0.66, fy=0.66, interpolation=cv2.INTER_AREA)
+        gray=cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        dst = cv2.GaussianBlur(gray, (5,5), 0)
+        _, thresh=cv2.threshold(resized, 300,600,cv2.THRESH_TRUNC)
+        finding_edges=cv2.Canny(thresh, 70, 350)
+        cv2.imshow('edges',finding_edges)
+        cv2.waitKey(0)
+
+        # Find contours of green regions
+        contours, _ = cv2.findContours(finding_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        sorted_contours= sorted(contours, key=cv2.contourArea, reverse=True)
+
+        res= sorted_contours[:100]
+        print(len(res))
+            
+        #large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_length_threshold]
+        # Draw contours on original image
+        
+        for r in res:
+                x,y,w,h=cv2.boundingRect(r)
+                cv2.drawContours(resized, [r],-1, (0,255,0),1)
+                    
+        cv2.imshow('rough patches',resized)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+            
+        edges_pil = Image.fromarray(finding_edges)
+
+        # Convert PIL image to bytes
+        buffer = BytesIO()
+        edges_pil.save(buffer, format="PNG")
+        buffer.seek(0)
 
             # Send the response with the edge-detected image
-                self.send_response(200)
-                self.send_header('Content-type', 'image/png')
-                self.end_headers()
-                self.wfile.write(buffer.getvalue())
+        self.send_response(200)
+        self.send_header('Content-type', 'image/png')
+        self.end_headers()
+        self.wfile.write(buffer.getvalue())
 
-            except Exception as e:
-                print(f"Error processing request: {e}")  
-                  
-            finally:
-                driver.quit()  
-           
+
+        
+
 def listen_to_folium_map(port=3001):
     server_address = ('', port)
     httpd = HTTPServer(server_address, FoliumServer)
     print("Server started")
+    
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -343,14 +322,11 @@ def listen_to_folium_map(port=3001):
 coords = []
 
 
-
-
 if __name__ == "__main__":
     # create variables
     folium_port = 3001
     map_filepath = r"C:\Users\jkhus\Desktop\ps\folium-map.html"
     center_coord = [22.3221, 73.165]
-    
     coordinate_filepath = "coords.json"
 
     # create folium map
@@ -358,10 +334,9 @@ if __name__ == "__main__":
     
     server_thread = threading.Thread(target=listen_to_folium_map, args=(folium_port,))
     server_thread.start()
-    # open the folium map (selenium)
 
+    # open the folium map (selenium)
     driver = open_folium_map(map_filepath)
-   
 
     # print all collected coords
     json.dump(coords, open(coordinate_filepath, 'w'))
