@@ -278,9 +278,9 @@ class FoliumServer(BaseHTTPRequestHandler):
                 screenshot_path = os.path.join(folder_path, "1.png")
                 driver.save_screenshot(screenshot_path)
                 img = cv2.imread(screenshot_path)
-                resized = cv2.resize(img, None, fx=0.66, fy=0.66, interpolation=cv2.INTER_AREA)
-                dst = cv2.fastNlMeansDenoisingColored(resized, None, 10, 10, 7, 15) 
                 resized = cv2.resize(img, None, fx=0.66,fy=0.66, interpolation=cv2.INTER_AREA)
+                dst = cv2.fastNlMeansDenoisingColored(resized, None, 10, 10, 7, 15) 
+                
                 gray=cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
                 #ret, thresh=cv2.threshold(resized, 100,200,cv2.THRESH_BINARY)
                 dst = cv2.GaussianBlur(gray, (5,5), 0)
@@ -305,9 +305,7 @@ class FoliumServer(BaseHTTPRequestHandler):
                     cv2.drawContours(resized, [r],-1, (0,255,0),2)
                 cv2.imshow('rough patches',resized)
                 cv2.waitKey(10)
-                cv2.imwrite()
-
-        
+                cv2.destroyAllWindows()
                 
             
                 edges_pil = Image.fromarray(finding_edges)
