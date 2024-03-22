@@ -1,4 +1,5 @@
 # smart-parking-spaceimport time
+import time
 import json
 import folium
 import pandas as pd
@@ -186,6 +187,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
                 [{row['latitude']}, {row['longitude']}],
                 {{}}
             ).addTo({map_variable_name});
+            
        
         "> Analyze </button>
         <button onClick="
@@ -198,7 +200,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
                 }},
                 body: 'q'
             }});
-        "> Quit </button>
+        " name='button'> Quit </button>
     </div>
     '''
           
@@ -206,9 +208,12 @@ def create_folium_map(map_filepath, center_coord, folium_port):
         location=[row['latitude'], row['longitude']],
          popup=folium.Popup(popup_content),
     ).add_to(vmap)
+          
+   
 
 
     df.apply(add_marker, axis=1, args=(map_variable_name,folium_port))
+    
     Geocoder().add_to(vmap)
     vmap.save(map_filepath)
 
@@ -249,8 +254,8 @@ class FoliumServer(BaseHTTPRequestHandler):
         last_clicked_coords = coords[-1]
         latitude = last_clicked_coords['latitude']
         longitude = last_clicked_coords['longitude']
-            
-        js_code = f"alert('process'); map.flyTo(L.latLng([{latitude},{longitude}]),17);"
+        print(last_clicked_coords)    
+        js_code = f"alert('process'); map.flyTo([{last_clicked_coords[0]},{last_clicked_coords[1]}],18); "
                 
         driver.execute_script(js_code)
         time.sleep(2)
@@ -262,34 +267,55 @@ class FoliumServer(BaseHTTPRequestHandler):
         screenshot_path = os.path.join(folder_path, "1.png")
         driver.save_screenshot(screenshot_path)
         img = cv2.imread(screenshot_path)
-        resized = cv2.resize(img, None, fx=0.66, fy=0.66, interpolation=cv2.INTER_AREA)
-        gray=cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        dst = cv2.GaussianBlur(gray, (5,5), 0)
-        _, thresh=cv2.threshold(resized, 300,600,cv2.THRESH_TRUNC)
-        finding_edges=cv2.Canny(thresh, 70, 350)
-        cv2.imshow('edges',finding_edges)
+        resized = cv2.resize(img, None, fx=0.66,fy=0.66, interpolation=cv2.INTER_AREA)
+        # Get height and width of the image
+        h, w = img.shape[:2]
+
+        # Display the image
+        cv2.imshow( 'image', resized)
+        cv2.waitKey(0) 
+
+        # Draw gray box around image to detect edge buildings
+        cv2.rectangle(resized, (0, 0), (w - 1, h - 1), (50, 50, 50), 1)
+
+        # Convert image to HSV
+        hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
+        cv2.imshow('hsv',hsv)
         cv2.waitKey(0)
+        # Define color ranges(330, 62, 18)
+        low_green = (45, 17, 31)
+        high_green = (120, 255, 255)
 
-        # Find contours of green regions
-        contours, _ = cv2.findContours(finding_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #define yellow
+        low_yellow = (0, 28, 0)
+        high_yellow = (27, 255, 255)
 
+        # Create masks
+        yellow_mask = cv2.inRange(hsv, low_yellow, high_yellow)
+        gray_mask = cv2.inRange(hsv, low_green, high_green)
+
+        # Combine masks
+        combined_mask = cv2.bitwise_or(yellow_mask, gray_mask)
+        kernel = np.ones((3, 3), dtype=np.uint8)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_ERODE, kernel)
+
+        # Find contours
+        contours, hier = cv2.findContours(combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         sorted_contours= sorted(contours, key=cv2.contourArea, reverse=True)
 
-        res= sorted_contours[:100]
-        print(len(res))
-            
-        #large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_length_threshold]
-        # Draw contours on original image
-        
-        for r in res:
-                x,y,w,h=cv2.boundingRect(r)
-                cv2.drawContours(resized, [r],-1, (0,255,0),1)
-                    
-        cv2.imshow('rough patches',resized)
+        res= sorted_contours[0:10]
+
+
+        # Draw the outline of all contours
+        for cnt in res:
+            cv2.drawContours(resized, [cnt], 0, (0, 255, 0), 2)
+
+        # Display result
+        cv2.imshow("Result", resized)
         cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        cv2.destroyAllWindows() 
             
-        edges_pil = Image.fromarray(finding_edges)
+        edges_pil = Image.fromarray(resized)
 
         # Convert PIL image to bytes
         buffer = BytesIO()
