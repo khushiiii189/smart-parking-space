@@ -106,24 +106,27 @@ def load_coords():
             return json.load(file)
     except FileNotFoundError:
         return []
+
     
+# create folium map
 def create_folium_map(map_filepath, center_coord, folium_port):
 
 
-    # create folium map
     data = pd.read_csv('new2.csv')
     
     df = pd.DataFrame(data)
 
     df = df.reset_index()
 
-    # Preprocessing: Drop unwanted rows
+# Preprocessing: Drop unwanted rows
     unwanted_categories = ['Underwear store', 'Auto repair shop', 'Motorcycle dealer', 'Parking garage',
                             'Fruit and vegetable store', 'Indian grocery store', 'Grocery store',
                             'General store', 'Produce market']
-    unwanted_titles=['MAA VAISHNAVDEVI COCONUT','Meghanagar Shopping Center','PUNIT OIL DEPOT','Prabhu Provision Store','Eva Mall Circle','VINYOG PROVISION STORE','JAY MATAJI PROVISION STORE','Monalisa Commercial Hub','Amarjyot Shopping Centre','Amish Park Shop Center','Kamla Park Shopping Complex','Parnvilla Shopping Centre','Dhanlaxmi Shopping Center','Meghanagar Shopping Cente','Radhe Shyam Shopping Center','Neelnandan Shopping Center','Maa Harsidhi general Store','BHAGYALAXMI PROVISION STORES','PS FRUIT MERCHANT','Hardik Shopping Center','Shreem Shalini Mall','Radha Krishna Shopping Centre','The Shoppie (Vadodara)']
+    unwanted_titles=['MAA VAISHNAVDEVI COCONUT','Meghanagar Shopping Center','PUNIT OIL DEPOT','Prabhu Provision Store','Eva Mall Circle','VINYOG PROVISION STORE','JAY                            MATAJI PROVISION STORE','Monalisa Commercial Hub','Amarjyot Shopping Centre','Amish Park Shop Center','Kamla Park Shopping Complex','Parnvilla                               Shopping Centre','Dhanlaxmi Shopping Center','Meghanagar Shopping Cente','Radhe Shyam Shopping Center','Neelnandan Shopping Center','Maa Harsidhi                            general Store','BHAGYALAXMI PROVISION STORES','PS FRUIT MERCHANT','Hardik Shopping Center','Shreem Shalini Mall','Radha Krishna Shopping                                     Centre','The Shoppie (Vadodara)']
     df = df[~df['categoryName'].isin(unwanted_categories)]
     df = df[~df['title'].isin(unwanted_titles)]
+    
+# creating the folium map     
     vmap = folium.Map(center_coord, zoom_start=15)
 
     # add popup
@@ -150,14 +153,14 @@ def create_folium_map(map_filepath, center_coord, folium_port):
     with open(map_filepath, 'r') as mapfile:
             html = mapfile.read()
 
-    # find variable names
+# find variable names
     map_variable_name = find_variable_name(html, "map_")
     popup_variable_name = find_variable_name(html, "lat_lng_popup_")
 
-    # determine popup function indicies
+# determine popup function indicies
     pstart, pend = find_popup_slice(html)
     
-    # inject code
+# inject code
     with open(map_filepath, 'w') as mapfile:
         mapfile.write(
             html[:pstart] + \
@@ -169,9 +172,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
         with open(map_filepath, 'r') as mapfile:
             html_content = mapfile.read()
 
-        # Find the appropriate place to inject the script tag
-        # This could be after the <head> tag, for example
-        # Modify this according to your HTML structure
+# injecting he ;eaflet.js package in folium map html file
         injection_point = html_content.find('<head>')
 
         # Check if the injection point was found
@@ -187,7 +188,8 @@ def create_folium_map(map_filepath, center_coord, folium_port):
 
     except Exception as e:
         print("Error occurred while injecting Leaflet.js script tag:", e)
- 
+
+ # adding markers on the map acc to csv file
     def add_marker(row, map_variable_name, folium_port):
           popup_content = f'''
           <div>
@@ -297,27 +299,26 @@ class FoliumServer(BaseHTTPRequestHandler):
 
         screenshot_path = os.path.join(images, "1.png")
 
-        #grabbing the ss         
+# grabbing the ss         
         driver.save_screenshot(screenshot_path)
         img = cv2.imread(screenshot_path)
         resized = cv2.resize(img, None, fx=0.66,fy=0.66, interpolation=cv2.INTER_AREA)
         # Get height and width of the image
         h, w = img.shape[:2]
 
-        # Display the image
+# Display the image
         cv2.imshow( 'image', resized)
         cv2.waitKey(0) 
 
 
-        # Convert image to HSV
+# Convert image to HSV
         hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
         cv2.imshow('hsv',hsv)
         cv2.waitKey(0)
-        # Define color ranges(330, 62, 18)
+# Define color ranges
         low_green = (45, 17, 31)
         high_green = (120, 255, 255)
-
-        #define yellow
+# define yellow
         low_yellow = (0, 28, 0)
         high_yellow = (27, 255, 255)
 
