@@ -206,8 +206,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
                 body: JSON.stringify({{
                     latitude: {row['latitude']},
                     longitude:{row['longitude']},
-                    capture_screenshot: true,
-                    title:{row['title']}
+                    capture_screenshot: true
                 }})
             }});
 
