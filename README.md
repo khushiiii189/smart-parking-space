@@ -1,4 +1,3 @@
-# smart-parking-spaceimport time
 import time
 import json
 import folium
@@ -13,7 +12,8 @@ import cv2
 import numpy as np
 from PIL import Image
 from io import BytesIO
-import csv
+
+
 
 def find_popup_slice(html):
     '''
@@ -108,7 +108,8 @@ def load_coords():
         return []
     
 def create_folium_map(map_filepath, center_coord, folium_port):
-        
+
+
     # create folium map
     data = pd.read_csv('new2.csv')
     
@@ -120,10 +121,10 @@ def create_folium_map(map_filepath, center_coord, folium_port):
     unwanted_categories = ['Underwear store', 'Auto repair shop', 'Motorcycle dealer', 'Parking garage',
                             'Fruit and vegetable store', 'Indian grocery store', 'Grocery store',
                             'General store', 'Produce market']
-    
+    unwanted_titles=['MAA VAISHNAVDEVI COCONUT','Meghanagar Shopping Center','PUNIT OIL DEPOT','Prabhu Provision Store','Eva Mall Circle','VINYOG PROVISION STORE','JAY MATAJI PROVISION STORE','Monalisa Commercial Hub','Amarjyot Shopping Centre','Amish Park Shop Center','Kamla Park Shopping Complex','Parnvilla Shopping Centre','Dhanlaxmi Shopping Center','Meghanagar Shopping Cente','Radhe Shyam Shopping Center','Neelnandan Shopping Center','Maa Harsidhi general Store','BHAGYALAXMI PROVISION STORES','PS FRUIT MERCHANT','Hardik Shopping Center','Shreem Shalini Mall','Radha Krishna Shopping Centre','The Shoppie (Vadodara)']
     df = df[~df['categoryName'].isin(unwanted_categories)]
-    df = df[df['title'] != 'PUNIT OIL DEPOT']
-    vmap = folium.Map(center_coord, zoom_start=17)
+    df = df[~df['title'].isin(unwanted_titles)]
+    vmap = folium.Map(center_coord, zoom_start=15)
 
     # add popup
     folium.LatLngPopup().add_to(vmap)
@@ -155,7 +156,7 @@ def create_folium_map(map_filepath, center_coord, folium_port):
 
     # determine popup function indicies
     pstart, pend = find_popup_slice(html)
-
+    
     # inject code
     with open(map_filepath, 'w') as mapfile:
         mapfile.write(
@@ -163,11 +164,35 @@ def create_folium_map(map_filepath, center_coord, folium_port):
             custom_code(popup_variable_name, map_variable_name, folium_port) + \
             html[pend:]
         )
+
+    try:
+        with open(map_filepath, 'r') as mapfile:
+            html_content = mapfile.read()
+
+        # Find the appropriate place to inject the script tag
+        # This could be after the <head> tag, for example
+        # Modify this according to your HTML structure
+        injection_point = html_content.find('<head>')
+
+        # Check if the injection point was found
+        if injection_point != -1:
+            # Inject the script tag
+            html_content = html_content[:injection_point + len('<head>')] + \
+                           '<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>' + \
+                           html_content[injection_point + len('<head>'):]
+
+            # Write the modified HTML content back to the file
+            with open(map_filepath, 'w') as mapfile:
+                mapfile.write(html_content)
+
+    except Exception as e:
+        print("Error occurred while injecting Leaflet.js script tag:", e)
  
     def add_marker(row, map_variable_name, folium_port):
           popup_content = f'''
           <div>
         <p>{row['title']}</p>
+        
         <button id='ANALYZE' onClick="
             fetch('http://localhost:{folium_port}', {{
                 method: 'POST',
@@ -179,17 +204,19 @@ def create_folium_map(map_filepath, center_coord, folium_port):
                 body: JSON.stringify({{
                     latitude: {row['latitude']},
                     longitude:{row['longitude']},
-                    capture_screenshot: true
+                    capture_screenshot: true,
+                    title:{row['title']}
                 }})
             }});
 
             L.marker(
-                [{row['latitude']}, {row['longitude']}],
-                {{}}
+                [{row['latitude']}, {row['longitude']}]
             ).addTo({map_variable_name});
             
+            {map_variable_name}.flyTo([{row['latitude']}, {row['longitude']}], 18);
        
         "> Analyze </button>
+
         <button onClick="
             fetch('http://localhost:{folium_port}', {{
                 method: 'POST',
@@ -209,17 +236,17 @@ def create_folium_map(map_filepath, center_coord, folium_port):
          popup=folium.Popup(popup_content),
     ).add_to(vmap)
           
-   
-
-
+          
     df.apply(add_marker, axis=1, args=(map_variable_name,folium_port))
     
+   
     Geocoder().add_to(vmap)
+
     vmap.save(map_filepath)
 
     
 
-def open_folium_map( map_filepath):
+def open_folium_map(map_filepath):
     driver = None
     try:
         driver = webdriver.Chrome()
@@ -255,16 +282,22 @@ class FoliumServer(BaseHTTPRequestHandler):
         latitude = last_clicked_coords['latitude']
         longitude = last_clicked_coords['longitude']
         print(last_clicked_coords)    
-        js_code = f"alert('process'); map.flyTo([{last_clicked_coords[0]},{last_clicked_coords[1]}],18); "
+        js_code = f"alert('process'); "
                 
         driver.execute_script(js_code)
         time.sleep(2)
-        folder_path=r"C:\Users\jkhus\Desktop\ps\images"
 
-        if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-                    
-        screenshot_path = os.path.join(folder_path, "1.png")
+         #create a dir to save image if doesnt exist
+        cwd=os.getcwd()
+        images= cwd+'\images'
+        path=os.path.exists(images)
+        if not path:
+            os.makedirs(images)
+            print(images+' created!')
+
+        screenshot_path = os.path.join(images, "1.png")
+
+        #grabbing the ss         
         driver.save_screenshot(screenshot_path)
         img = cv2.imread(screenshot_path)
         resized = cv2.resize(img, None, fx=0.66,fy=0.66, interpolation=cv2.INTER_AREA)
@@ -275,8 +308,6 @@ class FoliumServer(BaseHTTPRequestHandler):
         cv2.imshow( 'image', resized)
         cv2.waitKey(0) 
 
-        # Draw gray box around image to detect edge buildings
-        cv2.rectangle(resized, (0, 0), (w - 1, h - 1), (50, 50, 50), 1)
 
         # Convert image to HSV
         hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
@@ -300,15 +331,15 @@ class FoliumServer(BaseHTTPRequestHandler):
         combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_ERODE, kernel)
 
         # Find contours
-        contours, hier = cv2.findContours(combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         sorted_contours= sorted(contours, key=cv2.contourArea, reverse=True)
 
-        res= sorted_contours[0:10]
+        res= sorted_contours[0:15]
 
 
         # Draw the outline of all contours
         for cnt in res:
-            cv2.drawContours(resized, [cnt], 0, (0, 255, 0), 2)
+            cv2.drawContours(resized, [cnt], 0, (0, 255, 0), 1)
 
         # Display result
         cv2.imshow("Result", resized)
@@ -318,18 +349,17 @@ class FoliumServer(BaseHTTPRequestHandler):
         edges_pil = Image.fromarray(resized)
 
         # Convert PIL image to bytes
-        buffer = BytesIO()
+        buffer = BytesIO(edges_pil)
         edges_pil.save(buffer, format="PNG")
         buffer.seek(0)
 
-            # Send the response with the edge-detected image
+        # Send the response with the detected image
         self.send_response(200)
         self.send_header('Content-type', 'image/png')
         self.end_headers()
         self.wfile.write(buffer.getvalue())
 
 
-        
 
 def listen_to_folium_map(port=3001):
     server_address = ('', port)
@@ -344,9 +374,7 @@ def listen_to_folium_map(port=3001):
     httpd.server_close()
     print("Server stopped...")
 
-
 coords = []
-
 
 if __name__ == "__main__":
     # create variables
